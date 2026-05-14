@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEP - Trenažér na zápočtový test</title>
+    <style>
+        :root {
+            --primary: #0f62fe;
+            --bg: #f4f4f4;
+            --surface: #ffffff;
+            --text: #161616;
+            --success: #24a148;
+            --error: #da1e28;
+            --border: #e0e0e0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            border: 2px solid var(--primary);
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .timer { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .timer.danger { color: var(--error); }
+        .question-card {
+            background: var(--surface);
+            padding: 20px 25px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+        .cat-label {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .option-label {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 15px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+        .option-label:hover { background: #f0f0f0; }
+        .option-label input { margin-top: 5px; margin-right: 15px; transform: scale(1.2); }
+        .option-label.correct { background-color: #defbe6; border-color: var(--success); }
+        .option-label.wrong { background-color: #fff1f1; border-color: var(--error); }
+        .option-label.missed { border: 2px dashed var(--success); }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: var(--primary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 30px 0;
+            transition: background 0.3s;
+        }
+        .btn:hover { background-color: #0353e9; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        #results {
+            display: none;
+            text-align: center;
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            font-size: 1.2rem;
+        }
+        .score-big { font-size: 3rem; font-weight: bold; color: var(--primary); margin: 10px 0; }
+        .pass { color: var(--success); }
+        .fail { color: var(--error); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>TEP Zápočet</h1>
+        <div class="timer" id="timer">10:00</div>
+    </div>
+
+    <div id="results">
+        <h2>Výsledek testu</h2>
+        <div class="score-big" id="score-text">0 / 10</div>
+        <div id="pass-status" style="font-weight: bold;"></div>
+        <button class="btn" onclick="initTest()">Vygenerovat další test</button>
+    </div>
+
+    <div id="test-container"></div>
+    <button class="btn" id="submit-btn" onclick="evaluateTest()">Odevzdat test</button>
+</div>
+
+<script>
+// VŠECH 77 OTÁZEK
+const allQuestions = [
+    // Úloha 1
+    { cat: 1, text: "Správné vlastnosti naimpregnovaného produktu ve srovnání s výrobkem bez impregnace jsou:", c: "Zvýšená odolnost vůči působení vlhkosti a schopnost odolat vyššímu průraznému napětí", w: ["Výrazně vyšší hodnota ztrátového činitele a srovnatelná velikost izolačního odporu", "Řádově nižší kapacita a vyšší elektrická pevnost", "Menší odolnost ve vlhkém prostředí a nižší elektrická pevnost"] },
+    { cat: 1, text: "Impregnační proces izolačním olejem zahrnuje následující etapy:", c: "sušení a napouštění izolačního systému impregnantem", w: ["sušení, napouštění izolačního systému impregnantem a vytvrzování", "napouštění izolačního systému impregnantem a vytvrzování", "sušení, napouštění izolačního systému impregnantem a čištění oleje"] },
+    { cat: 1, text: "Během vakuového sušení se izolační odpor navlhlého impregnovaného systému:", c: "monotónně se zvyšuje", w: ["nejdříve se zvyšuje a potom se snižuje", "nejdříve se snižuje a potom se zvyšuje", "monotónně se snižuje"] },
+    { cat: 1, text: "Výhoda vakuového sušení spočívá v:", c: "Použití nižší sušicí teploty a snížení rizika termooxidace izolace", w: ["Rychlejší degradaci parametrů výrobku během jeho provozu", "Nízkých pořizovacích nákladech na impregnační zařízení", "Narušení izolace pro lepší zalití impregnačním olejem"] },
+    { cat: 1, text: "Izolační odpor vysušeného svitkového kondenzátoru je přibližně:", c: "více než 1 MΩ", w: ["jednotky kΩ", "méně než 1 MΩ", "desítky Ω"] },
+    { cat: 1, text: "Impregnaci můžeme monitorovat měřením následujících veličin:", c: "kapacita, ztrátový činitel, izolační odpor", w: ["izolační odpor, permitivita, ztrátový činitel", "objem, teplota, tlak", "dielektrická pevnost, ztrátový činitel, kapacita, izolační odpor"] },
+    { cat: 1, text: "Jak se mění kapacita C a izolační odpor Ri svitkového kondenzátoru s časem v průběhu etapy sušení:", c: "C klesá, Ri roste", w: ["C roste, Ri roste", "C roste, Ri klesá", "C klesá, Ri klesá"] },
+    
+    // Úloha 2
+    { cat: 2, text: "Teplotní hranice mezi měkkým a tvrdým pájením je:", c: "450 °C", w: ["183 °C", "217 °C", "600 °C"] },
+    { cat: 2, text: "K čemu slouží tavidlo?", c: "redukce oxidů a dalších nečistot na pájených površích, a tedy podpora smáčení pájky", w: ["ochrana proti korozi pájených spojů", "podpora oxidace pájených povrchů, a tedy podpora smáčení pájky", "snižuje teplotu tání pájky a tím podporuje její smáčení po povrchu"] },
+    { cat: 2, text: "Jaký je účel tavidla při pájení:", c: "redukuje oxidové vrstvy", w: ["snižuje teplotu ohřevu spoje", "naleptává pájené díly, aby se zvětšila styčná plocha", "natavuje pájené díly"] },
+    { cat: 2, text: "Vyberte skupinu kovů nejčastěji se vyskytující v pájecích slitinách pro elektrotechniku:", c: "Měď, bismut, cín, stříbro", w: ["Měď, chrom, olovo, kadmium", "Olovo, zlato, cín, platina", "Cín, hliník, zinek, měď"] },
+    { cat: 2, text: "Co znamená zkratka SAC v souvislosti s pájkami:", c: "vyjadřuje složení pájky – cín, stříbro, měď", w: ["označení pro pastovitou formu pájky – (Solid Active Component)", "označuje normu – doporučení pro použití pájecí slitiny", "označuje typ tavidla v trubičkové pájce"] },
+    { cat: 2, text: "Zvolte správný postup tvorby pájeného spoje při ručním pájení součástky s drátovými vývody hrotovou páječkou:", c: "Nasazení součástky do připravených otvorů, zastřihnutí vývodů, aplikace tavidla, zahřátí oblasti tvorby spoje, přidání pájky, očištění spoje po zchladnutí", w: ["Umístění součástky do otvorů na desce plošného spoje, zahřátí ploch v místě vytvoření spoje, přidání pájecí slitiny, očištění vzniklých oxidů...", "Aplikace pájky hrotovou páječkou, vyvrtání otvorů pro vývody součástky, nanesení tavidla... přetavení pájky horkým vzduchem", "Nanesení pájecí pasty na vývody součástky, aplikace tavidla, umístění součástky na desku... odsátí zbytků tavidla"] },
+    { cat: 2, text: "Správné operace ve správném pořadí při pájení SMT (povrchová montáž) součástek přetavením jsou:", c: "nanesení pastovité pájky na pájecí plošky desky, usazení součástky, přetavení (ohřev) pájky", w: ["usazení součástky, nanesení pastovité pájky na pájecí plošky desky, přetavení (ohřev) pájky", "vyvrtání otvoru do pájecích plošek, usazení součástky, nanesení pastovité pájky na pájecí plošky desky, přetavení (ohřev) pájky", "vyvrtání otvoru do pájecích plošek, nanesení pastovité pájky na pájecí plošky desky, usazení součástky, přetavení (ohřev) pájky"] },
+    { cat: 2, text: "Jaké účely má pájený spoj?", c: "mechanicky ukotvit a vodivě propojit součástku na desce plošného spoje", w: ["omezit vliv elektromagnetického pole na funkci součástky", "vytvořit izolační bariéru mezi součástkou a deskou plošného spoje", "zajistit přívod tepelné energie k součástce"] },
+    { cat: 2, text: "Kvalitní (olovnatý) pájený spoj musí splňovat následující požadavky:", c: "smáčecí úhel menší než 15°, lesklý povrch, optimální množství pájky, žádná část spoje není obnažená", w: ["smáčecí úhel větší než 15°, lesklý povrch, optimální množství pájky", "smáčecí úhel v rozmezí 0–90°, lesklý povrch, pokrytí základního kovu alespoň z 50 %", "smáčecí úhel větší než 45°, matný povrch, dostatečné množství pájky ve spoji"] },
+    { cat: 2, text: "Vyhřívaná odsávačka s dutým hrotem se používá při:", c: "Výměně vadné součástky", w: ["Aplikaci pájecí pasty", "Ručním pájení", "Pájení přetavením"] },
+
+    // Úloha 3
+    { cat: 3, text: "Z označení AYKY 4Bx16 vyčteme:", c: "materiál vodiče je hliník, jedná se o silový kabel, izolace je z PVC, kabel má 4 žíly, průřez žil je 16 mm².", w: ["materiál vodiče je hliník, jedná se o silový kabel, izolace je z PVC, kabel má 4 žíly, tloušťka izolace je 16 mm.", "materiál vodiče je hliník, jedná se o silový kabel, izolace je z PVC, kabel má 4 žíly, průměr žil je 16 mm.", "materiál vodiče je hliník, jedná se o silový kabel, izolace je z pryže, kabel má 4 žíly, průřez žil je 16 mm²."] },
+    { cat: 3, text: "Jaký je materiál vodiče a izolace u kabelu s označením AYKY 4Bx16?", c: "hliník a PVC", w: ["hliník a PE", "měď a PVC", "měď a PE"] },
+    { cat: 3, text: "Proč se využívá spojování silových kabelů v energetických rozvodech?", c: "z výrobních, transportních a napojovacích důvodů", w: ["pro zjištění průřezu a materiálu vodivých žil", "kvůli snížení úbytků napětí", "za účelem analýzy kapacitního charakteru kabelu"] },
+    { cat: 3, text: "Které dva kovy se používají pro výrobu vodivého jádra silového kabelu?", c: "hliník a měď", w: ["hliník a wolfram", "měď a molybden", "cín a bizmut"] },
+    { cat: 3, text: "Spojování silového kabelu, které bylo demonstrováno ve třetí úloze, je založeno na:", c: "lisování zastudena", w: ["šroubovém spoji", "lisování zatepla", "svařování"] },
+    { cat: 3, text: "Tavné těsnicí lepidlo:", c: "utěsňuje místa mezi smršťovací trubkou a původní žilní izolací (popř. pláštěm kabelu)", w: ["se aplikuje do lisovacích spojek, čímž zvyšuje elektrickou vodivost a snižuje přechodový odpor", "se nanáší na vnější povrch smršťovací trubku za účelem zvýšení tepelné odolnosti", "zlepšuje stínění a elektrickou pevnost kabelu"] },
+    { cat: 3, text: "Smršťitelnost u izolačních smršťovacích trubiček je způsobena:", c: "tvarovou tepelnou pamětí", w: ["stlačováním mechanickou silou", "roztavením materiálu do tekutého stavu", "přídavným chemickým prostředkem"] },
+    { cat: 3, text: "Přechodový odpor správně provedeného lisovaného spoje bude:", c: "menší nebo roven stejně dlouhému úseku samotného vodiče", w: ["větší než na stejně dlouhém úseku samotného vodiče", "pro určení kvality spoje není přechodový odpor podstatný", "způsobovat větší tepelné ztráty než stejně dlouhý úsek samotného vodiče"] },
+
+    // Úloha 4
+    { cat: 4, text: "Na kvalitu vyvrtaných děr má vliv:", c: "otáčky vrtáku, jeho stav, rychlost posuvu vrtačky v ose z, využití vrchní a spodní pomocné desky", w: ["nálada obsluhy", "teplota a tlak v místnosti", "otáčky vrtáku, jeho stav, využití vrchní a spodní pomocné desky, rychlost posuvu vrtačky v osách x, y"] },
+    { cat: 4, text: "Důvody pro vrtání desek plošných spojů jsou:", c: "umístění součástek typu THT, propojení různých vodivých vrstev (prokovené otvory), konstrukční důvody (uchycení DPS do krytu)", w: ["umístění součástek typu THT, propojení různých vodivých vrstev, označení desek (alternativa servisního potisku či gravírování)", "umístění součástek typu THT, konstrukční důvody, zlepšení mechanických vlastností základního substrátu", "umístění součástek typu THT, konstrukční důvody, lepší tepelná vodivost základního substrátu"] },
+    { cat: 4, text: "Jaké z následujících tvrzení platí pro datový soubor pro vrtání:", c: "Na jedné řádce jsou uvedeny souřadnice pouze pro 1 díru", w: ["Datový soubor pro vrtačku použitou v rámci cvičení nemusí být ve formátu GERBER", "Souřadnice děr musí být pouze v palcových mírách", "GERBER data obsahují souřadnice i pro osu z"] },
+    { cat: 4, text: "Datový soubor, kterým se řídí program vrtačky, je nejčastěji ve formátu:", c: "excellon či gerber", w: ["eagle", "CAD", "stačí zevrubný popis rozmístění vrtaných děr v těle e-mailu"] },
+    { cat: 4, text: "Typické desky plošných spojů jsou vytvořeny z:", c: "nosné izolační desky z kompozitu a vodivé měděné fólie", w: ["nosné izolační desky a napařené kovové vrstvy", "nosné izolační desky a chemicky vyloučené mědi", "nosné měděné desky a izolační fólie"] },
+    { cat: 4, text: "Správný zápis v GERBER datech pro souřadnici díry x=0,1mm a y=0,2mm je", c: "X01000Y02000", w: ["X100Y200", "XY 1000/2000", "X0.100Y0.200"] },
+
+    // Úloha 5
+    { cat: 5, text: "Pro zlepšení kvality spoje realizovaného vícedrátovými vodiči pomocí šroubových svorek, zejména svorek zdířkového typu, lze použít:", c: "žílové koncové trubičky (tzv. dutinky)", w: ["jednorázové lisovací svorníky (tzv. svorkovky)", "kombinované nastřelovací fastony (tzv. fastonky)", "izolační násuvné kolíky (tzv. kolíčky)"] },
+    { cat: 5, text: "Kontrola upevnění vodiče:", c: "má zdárný výsledek, pokud vodič vydrží v tahu předepsanou sílu podle průměru a typu spoje alespoň 1 minutu", w: ["je tahová zkouška, při které je vodič vytahován ze šroubové svorky/FOCT spoje postupně narůstající silou až do úplného uvolnění", "má zdárný výsledek, pokud vodič vydrží tahovou zkoušku při konstantní rychlosti posuvu čelistí", "je tlaková zkouška, kdy je vodič přitlačován směrem do šroubové svorky/FOCT spoje až do okamžiku prasknutí"] },
+    { cat: 5, text: "Velikost síly při kontrole upevnění vodiče závisí na:", c: "průměru vodiče a typu spojení", w: ["typu spojení", "průměru vodiče", "fyzické zdatnosti výrobního operátora"] },
+    { cat: 5, text: "Momentový utahovací nástroj se používá u:", c: "šroubových svorek", w: ["nasunovacích svorek", "pružinových svorek", "lisovaných konektorů"] },
+    { cat: 5, text: "Podstatu funkce rozebíratelných elektricky vodivých spojů lze popsat jako:", c: "Kovové části jsou udržovány ve vzájemném mechanickém styku, a tím i elektrickém kontaktu vnějším tlakem", w: ["Destruktivní spojení a rozpojení kovových částí, které se po rozpojení obnoví", "Vyvozování mechanické síly na nevodivé části spoje", "Nevodivé části jsou udržovány ve vzájemném mechanickém styku, a tím i elektrickém kontaktu pružicím prvkem"] },
+    { cat: 5, text: "Plochý násuvný spoj FOCT je sestava:", c: "Kolík – dutinka", w: ["Kolík – pružinka", "Svorník – pružinka", "Dutinka – pružinka"] },
+    { cat: 5, text: "Mezi metody pro ověřování kvality rozebíratelných spojů NEPATŘÍ:", c: "Měření průrazného napětí", w: ["Kontrola upevnění vodiče (tahová zkouška)", "Měření úbytků napětí", "Zkouška oteplení"] },
+    { cat: 5, text: "Mezi rozebíratelné elektrické spoje nepatří:", c: "Lisované spoje", w: ["Nasouvací svorky TOCD", "ploché násuvné spoje", "Šroubové spoje"] },
+
+    // Úloha 6
+    { cat: 6, text: "Odpařovací zdroj (lodička) pro odporový ohřev bývá vyroben z:", c: "wolframu, molybdenu nebo tantalu", w: ["stříbra, zlata, cínu, niklu nebo kobaltu", "oceli", "hliníku, mědi, bronzu nebo mosazi"] },
+    { cat: 6, text: "Jakým způsobem se při vakuovém napařování nanáší materiál na podložku:", c: "materiál v pevném stavu se ohřeje na bod varu, páry poté kondenzují na podložce", w: ["chemickou depozicí z plynné fáze", "vystřelováním částic z terče se zdrojovým materiálem", "materiál v kapalném stavu je elektromagnetickým polem nasměrován na podložku"] },
+    { cat: 6, text: "Napařování a naprašování patří mezi metody:", c: "vakuové", w: ["chemické", "elektrochemické", "plazmové"] },
+    { cat: 6, text: "Čím je především dán odpor vodivé tenké vrstvy?", c: "napařeným materiálem a tloušťkou tenké vrstvy", w: ["tloušťkou tenké vrstvy a typem lodičky", "napařeným materiálem a vlhkostí při napařování", "materiálem a čistotou podložky"] },
+    { cat: 6, text: "Jaké jsou požadavky na materiál odpařovacího zdroje napařovačky:", c: "Nesmí se rozpouštět v odpařovaném materiálu a znečišťovat ho", w: ["Musí být vyroben z elektricky a tepelně nevodivého materiálu", "Při zvýšené teplotě musí lehce reagovat s materiálem tenké vrstvy a vytvářet sloučeniny", "Teplota tání musí být nižší než teplota odpařovaného materiálu"] },
+    { cat: 6, text: "Pro absorbanci (pohltivost) A a transmitanci (propustnost) T platí vztah:", c: "A = -log T", w: ["A = log T", "T = 1/A", "T = log A"] },
+    { cat: 6, text: "Jaká je typická tloušťka tenkých vrstev? (v metrech)", c: "10⁻⁸ až 10⁻⁶ m", w: ["10⁻⁷ až 10⁻² m", "10⁰ až 10⁹ m", "10⁻⁴ až 10⁻² m"] },
+    { cat: 6, text: "Typické tloušťky tenkých vrstev připravených metodou napařování a naprašování jsou:", c: "desítky nm až jednotky μm", w: ["jednotky mm", "desetiny mm", "desítky nm"] },
+
+    // Úloha 7
+    { cat: 7, text: "Mezi metody 3D tisku NEPATŘÍ:", c: "PLD (pulsní laserová depozice)", w: ["Stereolitografie (vytvrzování tekuté pryskyřice pomocí UV světla)", "Selective Laser Sintering (spékání prášku)", "Fused Filament Fabrication (extruze roztaveného plastového vlákna)"] },
+    { cat: 7, text: "Procesní kroky při aditivní výrobě jsou:", c: "návrh digitálního modelu, převod modelu do instrukcí pro tiskárnu (vytvoření gcode souboru), příprava tiskárny před tiskem, 3D tisk, post-processing", w: ["příprava tiskárny před tiskem, 3D tisk, leštění a broušení výrobku", "návrh digitálního modelu, příprava tiskárny před tiskem, 3D tisk, post-processing", "narýsování výkresu modelu na papír... převod do instrukcí pro tiskárnu, 3D tisk, post-processing"] },
+    { cat: 7, text: "Sled kroků při aditivní výrobě (3D tisku) z roztavené struny (FFF) je následující:", c: "vytvoření digitálního modelu – nařezání modelu na vrstvy – příprava tiskárny a 3D tisk", w: ["rozvrstvení modelu – návrh modelu – příprava tiskárny a 3D tisk", "vytvoření digitálního modelu – příprava tiskárny a 3D tisk – dodatečné ohřátí výtisku pro lepší propojení vrstev", "rozvrstvení modelu – příprava tiskárny a 3D tisk – dodatečné ohřátí výtisku pro lepší propojení vrstev"] },
+    { cat: 7, text: "Pro technologii FDM (FFF) se NEPOUŽÍVÁ plast:", c: "PU (polyuretan)", w: ["PET-G (polyethylentereftalát-glykol)", "ABS (akrylonitril-butadien-styren)", "PLA (poly-mléčná kyselina)"] },
+    { cat: 7, text: "Výrobky z 3D tiskárny jsou charakteristické:", c: "mechanickou anizotropií", w: ["dokonalou mechanickou izotropií", "hladkým povrchem", "díky vrstvení obsahují dutinky a póry, které ale nemají žádný vliv na mechanickou pevnost"] },
+    { cat: 7, text: "Synonymum pro 3D tisk je:", c: "aditivní výroba", w: ["tváření za normálního tlaku", "subtraktivní výroba", "formativní výroba"] },
+    { cat: 7, text: "Technologie 3D tisku FDM využívá jako stavební materiál:", c: "termoplast ve formě filamentu", w: ["reaktoplast ve formě filamentu", "tekutý fotopolymer", "práškový termoplast uzavřený v plastické trubičce navinutý na cívku"] },
+
+    // Úloha 8
+    { cat: 8, text: "Jaká je jednotka indukčnosti?", c: "henry", w: ["tesla", "ohm", "farad"] },
+    { cat: 8, text: "Počet závitů na 1 vrstvu je určen:", c: "průměrem drátu a délkou kostřičky", w: ["průměrem drátu a rychlostí navíjení", "průměrem kostřičky a rychlostí navíjení", "průměrem drátu a průměrem kostřičky"] },
+    { cat: 8, text: "Navíječka cívek využitá v laboratorní úloze slouží k navíjení cívek:", c: "válcových", w: ["představená navíječka lze použít na libovolný tvar cívky", "toroidních", "kotoučových"] },
+    { cat: 8, text: "Cívka se skládá z:", c: "z nevodivé kostry a závitů z vodiče izolovaného lakem", w: ["z nevodivé kostry a závitů z holého neizolovaného vodiče", "z hliníkové kostry a závitů z vodiče izolovaného lakem", "z vodivé kostry a závitů z holého neizolovaného vodiče"] },
+    { cat: 8, text: "Jednotlivé závity cívky:", c: "musí být vzájemně izolovány", w: ["závity jsou vzájemně izolovány vzduchovou mezerou", "izolují se jen jednotlivé vrstvy závitů", "nesmí být vzájemně izolovány"] },
+    { cat: 8, text: "Navinutou cívku NENAJDEME v:", c: "tavné pojistce", w: ["spínaném napájecím zdroji", "transformátoru", "stykači a relé"] },
+    { cat: 8, text: "Vyberte správné tvrzení:", c: "velikost kapacity je přímo úměrná relativní permitivitě", w: ["velikost kapacity je nezávislá na relativní permitivitě", "relativní permitivita vzduchu je vyšší než vody", "ztrátový činitel vody je nižší než u vzduchu"] },
+
+    // Úloha 9
+    { cat: 9, text: "Tlusté vrstvy jsou:", c: "nehomogenní směsi funkční, pojivové a technologické složky", w: ["homogenní směsi funkční, pojivové a technologické složky", "homogenní směsi kovové a technologické složky", "homogenní směsi kovové složky a matrice"] },
+    { cat: 9, text: "Zařízení Voltera V-One lze využít k:", c: "ověření funkčnosti navržené desky plošného spoje", w: ["lisování vodivého motivu", "leptání desek plošných spojů", "osvícení fotorezistu"] },
+    { cat: 9, text: "Klasický způsob výroby desky plošného spoje je:", c: "chemické leptání měděné vrstvy s využitím fotolitografie", w: ["kreslení vodivých cest speciální měděnou barvou a tenkým štětcem", "tisk stříbrné pasty na základní substrát", "tisk pájecí pasty na základní substrát"] },
+    { cat: 9, text: "Vodivý inkoust (pasta), který se využívá pro vytváření tlustých vrstev:", c: "se skládá ze tří složek: funkční, technologické a adhezní", w: ["je plněný částicemi cínu, které se při vypékání inkoustu roztaví...", "je složený z polyethylénové matrice a plniva ve formě stříbrných šupinek", "je složený z epoxidové pryskyřice, která se stane vodivou tepelným žíháním"] },
+    { cat: 9, text: "Typická tloušťka tlustých vrstev je:", c: "desítky µm", w: ["desetiny mm", "jednotky mm", "desítky nm"] },
+    { cat: 9, text: "Sled kroků při nanášení vrstvy na tiskárně VOLTERA je následující:", c: "návrh motivu, umístění desky, kalibrace výšky tisku sondou, kalibrace výtlaku pasty, tisk, vytvrzení", w: ["návrh motivu, umístění desky, kalibrace výtlaku pasty, kalibrace výšky tisku sondou, tisk, vytvrzení", "návrh motivu, kalibrace výšky tisku sondou, umístění desky, kalibrace výtlaku pasty, tisk, vytvrzení", "návrh motivu, umístění desky, kalibrace výšky tisku sondou, kalibrace výtlaku pasty, tisk, zasušení"] },
+    { cat: 9, text: "Odpor na čtverec u tlustých vrstev je závislý:", c: "na rezistivitě materiálu a tloušťce vrstvy", w: ["na poměru délka/šířka vrstvy a rezistivitě materiálu", "na tloušťce vrstvy a poměru délka/šířka vrstvy", "na rezistivitě materiálu a šířce vrstvy"] },
+    { cat: 9, text: "Odpor na čtverec (R_sq) je definován jako (R – celkový odpor vrstvy, l – délka vrstvy, w – šířka vrstvy):", c: "R_sq = R · (w/l)", w: ["R_sq = w / (R · l)", "R_sq = R · l · w", "R_sq = (l · R) / w"] },
+    { cat: 9, text: "Jaký kov se používá v inkoustu pro tisk vodivých cest při výrobě desky plošného spoje na Voltera V-One", c: "stříbro", w: ["palladium", "hliník", "zinek"] },
+
+    // Úloha 10
+    { cat: 10, text: "Mezi laserové technologie NEPATŘÍ:", c: "leštění", w: ["řezání", "svařování", "gravírování"] },
+    { cat: 10, text: "Kolaborativní robot:", c: "je zpravidla menšího výkonu než industriální robot, je určen pro kontaktní spolupráci s lidmi", w: ["není přeprogramovatelný", "musí být zavřený v kleci kvůli bezpečnosti operátora", "má na sobě sedadlo pro operátora, který jej ovládá"] },
+    { cat: 10, text: "Kolaborativní robot (COBOT) na rozdíl od průmyslového robota:", c: "se snadněji programuje", w: ["je rychlejší", "je náročnější na investice", "je schopen pracovat s větší zátěží"] },
+    { cat: 10, text: "Při působení laseru při řezání / gravírování dochází:", c: "nejprve k ohřevu materiálu, potom k jeho tavení a nakonec k odpaření", w: ["nejprve k ohřevu materiálu, potom k jeho tuhnutí a nakonec k pasivaci povrchu", "nejprve k ohřevu materiálu, potom k jeho odpaření a nakonec k pasivaci povrchu", "nejprve k tavení materiálu, potom k jeho ohřevu a nakonec k odpaření"] },
+    { cat: 10, text: "K laserovému svařování se využívají lasery:", c: "pevnolátkové a plynové", w: ["CO₂, Nd:YAG, LED", "typu LED, pevnolátkové a plynové", "typu LED"] },
+    { cat: 10, text: "Jakým typem laseru disponuje cobot představený v 10. úloze (jedná se o nejméně výkonný typ)?", c: "LED", w: ["Pevnolátkovým", "Kapalným", "Plynovým"] },
+    { cat: 10, text: "Pomocí laseru NELZE:", c: "lisovat", w: ["svařovat", "řezat", "gravírovat"] }
+];
+
+// Logika poolů pro rotaci
+let categoryPools = {};
+
+function initPools() {
+    for (let i = 1; i <= 10; i++) {
+        categoryPools[i] = [];
+    }
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function getQuestionForCategory(cat) {
+    if (!categoryPools[cat] || categoryPools[cat].length === 0) {
+        // Refill pool
+        categoryPools[cat] = allQuestions.filter(q => q.cat === cat);
+        shuffleArray(categoryPools[cat]);
+    }
+    return categoryPools[cat].pop();
+}
+
+let timerInterval;
+let timeLeft = 600; // 10 minutes
+
+function formatTime(seconds) {
+    let m = Math.floor(seconds / 60);
+    let s = seconds % 60;
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+}
+
+function startTimer() {
+    clearInterval(timerInterval);
+    timeLeft = 600;
+    document.getElementById("timer").innerText = formatTime(timeLeft);
+    document.getElementById("timer").classList.remove("danger");
+    
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = formatTime(timeLeft);
+        if (timeLeft <= 60) {
+            document.getElementById("timer").classList.add("danger");
+        }
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            evaluateTest();
+        }
+    }, 1000);
+}
+
+let currentTest = [];
+
+function initTest() {
+    document.getElementById("results").style.display = "none";
+    document.getElementById("submit-btn").style.display = "block";
+    document.getElementById("submit-btn").disabled = false;
+    const container = document.getElementById("test-container");
+    container.innerHTML = "";
+    
+    currentTest = [];
+    
+    // Vyber 10 otázek (1 z každé kategorie)
+    for (let i = 1; i <= 10; i++) {
+        let q = getQuestionForCategory(i);
+        currentTest.push(q);
+    }
+    
+    // Vykreslení
+    currentTest.forEach((q, index) => {
+        let options = [{text: q.c, isCorrect: true}];
+        q.w.forEach(wrongText => options.push({text: wrongText, isCorrect: false}));
+        shuffleArray(options); // Zamíchat A,B,C,D
+        
+        let card = document.createElement("div");
+        card.className = "question-card";
+        
+        let html = `<span class="cat-label">Úloha ${q.cat} (Otázka ${index + 1}/10)</span>`;
+        html += `<div class="question-text">${q.text}</div>`;
+        html += `<div class="options" id="options-${index}">`;
+        
+        options.forEach((opt, optIndex) => {
+            html += `
+                <label class="option-label" id="label-${index}-${optIndex}">
+                    <input type="radio" name="q${index}" value="${opt.isCorrect}">
+                    ${opt.text}
+                </label>
+            `;
+        });
+        
+        html += `</div>`;
+        card.innerHTML = html;
+        container.appendChild(card);
+    });
+    
+    startTimer();
+    window.scrollTo(0, 0);
+}
+
+function evaluateTest() {
+    clearInterval(timerInterval);
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("submit-btn").style.display = "none";
+    
+    let score = 0;
+    
+    currentTest.forEach((q, index) => {
+        let optionsDiv = document.getElementById(`options-${index}`);
+        let radios = optionsDiv.querySelectorAll('input[type="radio"]');
+        let answeredCorrectly = false;
+        
+        radios.forEach((radio, optIndex) => {
+            let label = document.getElementById(`label-${index}-${optIndex}`);
+            radio.disabled = true; // zamknout
+            
+            if (radio.checked) {
+                if (radio.value === "true") {
+                    label.classList.add("correct");
+                    score++;
+                    answeredCorrectly = true;
+                } else {
+                    label.classList.add("wrong");
+                }
+            }
+            
+            // Ukázat vždy správnou odpověď, pokud ji netrefil
+            if (radio.value === "true" && !radio.checked) {
+                label.classList.add("missed");
+            }
+        });
+    });
+    
+    // Zobrazení výsledků
+    let resultsDiv = document.getElementById("results");
+    resultsDiv.style.display = "block";
+    document.getElementById("score-text").innerText = `${score} / 10`;
+    
+    let passStatus = document.getElementById("pass-status");
+    if (score >= 7) {
+        passStatus.innerText = "ZÁPOČET SPLNĚN ✓";
+        passStatus.className = "pass";
+    } else {
+        passStatus.innerText = "ZÁPOČET NESPLNĚN ✗ (Minimum je 7 b.)";
+        passStatus.className = "fail";
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Inicializace po načtení
+window.onload = () => {
+    initPools();
+    initTest();
+};
+
+</script>
+</body>
+</html>
